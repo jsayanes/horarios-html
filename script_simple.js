@@ -532,8 +532,25 @@ function makePermanent() {
 // ===============================
 function addExtraSubjects() {
     const bankContainer = document.querySelector('#subjectBank .d-flex');
-    if (!bankContainer) return;
+    if (!bankContainer) {
+        console.error('❌ Bank container not found!');
+        return;
+    }
     
+    console.log('✅ Bank container found:', bankContainer);
+    
+    // Original subjects that should be available in bank
+    const originalSubjects = [
+        { text: '9°1', colorClass: 'subject-pink', dataSubject: '9-1' },
+        { text: '9°2', colorClass: 'subject-blue', dataSubject: '9-2' },
+        { text: '9°3', colorClass: 'subject-orange', dataSubject: '9-3' },
+        { text: '9°4', colorClass: 'subject-red', dataSubject: '9-4' },
+        { text: '8°1', colorClass: 'subject-violet', dataSubject: '8-1' },
+        { text: '8°2', colorClass: 'subject-purple', dataSubject: '8-2' },
+        { text: '8°3', colorClass: 'subject-green', dataSubject: '8-3' }
+    ];
+    
+    // Extra subjects
     const extraSubjects = [
         { text: '7°1', colorClass: 'subject-teal', dataSubject: '7-1' },
         { text: '7°2', colorClass: 'subject-indigo', dataSubject: '7-2' },
@@ -542,7 +559,10 @@ function addExtraSubjects() {
         { text: '8°4', colorClass: 'subject-lavender', dataSubject: '8-4' }
     ];
     
-    extraSubjects.forEach(data => {
+    // Combine all subjects
+    const allSubjects = [...originalSubjects, ...extraSubjects];
+    
+    allSubjects.forEach(data => {
         const subject = document.createElement('div');
         subject.className = `subject ${data.colorClass}`;
         subject.textContent = data.text;
@@ -556,12 +576,14 @@ function addExtraSubjects() {
         
         bankContainer.appendChild(subject);
         setupSingleSubject(subject);
+        
+        console.log('✅ Added subject to bank:', data.text);
     });
     
     // Add customizable button
     addCustomizableButton(bankContainer);
     
-    console.log('📚 Extra subjects added to bank');
+    console.log('📚 All subjects added to bank - Total:', allSubjects.length + 1);
 }
 
 // ===============================
