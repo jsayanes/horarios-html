@@ -1,4 +1,18 @@
 // ===============================
+// GOOGLE SHEETS CONFIGURATION
+// ===============================
+
+// TODO: Configurar estas variables con tus datos
+const GOOGLE_SHEETS_CONFIG = {
+    API_KEY: 'TU_API_KEY_AQUI', // Será configurado después
+    SHEET_ID: 'TU_SHEET_ID_AQUI', // Será configurado después
+    RANGE: 'Horario!A1:H20' // Rango de celdas
+};
+
+let isGoogleSheetsReady = false;
+let gapi = null;
+
+// ===============================
 // SIMPLE DRAG AND DROP SYSTEM
 // ===============================
 
@@ -12,30 +26,53 @@ let sessionSchedule = {}; // Current session changes
 // INITIALIZATION
 // ===============================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Starting Simple Drag and Drop System...');
+    console.log('🚀 Starting TRUE Binary Schedule System (No Server Required)...');
     
-    // Save original state
-    saveOriginalState();
-    
-    // Load saved configuration if exists
-    loadSavedConfiguration();
-    
-    // Initialize all drag and drop
-    initializeSimpleDragDrop();
-    
-    // Initialize buttons
-    initializeButtons();
-    
-    // Add extra subjects to bank
-    addExtraSubjects();
-    
-    // Initialize editable fields
-    initializeEditableFields();
-    
-    // Initialize session schedule
-    updateSessionSchedule();
-    
-    console.log('✅ Simple System Ready!');
+    try {
+        // Save original state
+        saveOriginalState();
+        
+        // Initialize all drag and drop FIRST
+        initializeSimpleDragDrop();
+        
+        // Initialize buttons
+        initializeButtons();
+        
+        // Add extra subjects to bank
+        addExtraSubjects();
+        
+        // Initialize editable fields
+        initializeEditableFields();
+        
+        // Initialize session schedule
+        updateSessionSchedule();
+        
+        // Enable offline mode (after everything is set up)
+        enableOfflineMode();
+        
+        // Initialize Google Sheets (optional, will fallback to offline)
+        initializeGoogleSheets();
+        
+        // Auto-save backup every 30 seconds (after everything is ready)
+        setTimeout(() => {
+            setInterval(saveOfflineBackup, 30000);
+        }, 5000);
+        
+        console.log('✅ TRUE Binary System Ready - Full Offline Mode!');
+        
+    } catch (error) {
+        console.error('❌ Error during initialization:', error);
+        
+        // Fallback: try to initialize basic drag and drop
+        setTimeout(() => {
+            try {
+                initializeSimpleDragDrop();
+                console.log('🔄 Fallback drag and drop initialized');
+            } catch (fallbackError) {
+                console.error('❌ Fallback failed:', fallbackError);
+            }
+        }, 1000);
+    }
 });
 
 // ===============================
@@ -432,6 +469,9 @@ function initializeButtons() {
 function updateSessionSchedule() {
     sessionSchedule = getCurrentScheduleState();
     console.log('🔄 Session updated automatically');
+    
+    // Auto-save to Google Sheets
+    autoSaveToGoogleSheets();
 }
 
 function resetToDefault() {
@@ -776,6 +816,819 @@ function showNotification(message, type = 'info') {
     }, 3000);
     
     console.log(`📢 Notification: ${message}`);
+}
+
+// ===============================
+// GOOGLE SHEETS INTEGRATION
+// ===============================
+
+function initializeGoogleSheets() {
+    console.log('🔄 Initializing Google Sheets API...');
+    
+    // Cargar Google API
+    if (typeof gapi !== 'undefined') {
+        gapi.load('client', initializeGoogleSheetsClient);
+    } else {
+        console.log('⏳ Waiting for Google API to load...');
+        setTimeout(initializeGoogleSheets, 1000);
+    }
+}
+
+function initializeGoogleSheetsClient() {
+    console.log('🔧 Initializing Google Sheets client...');
+    
+    gapi.client.init({
+        apiKey: GOOGLE_SHEETS_CONFIG.API_KEY,
+        discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
+    }).then(function() {
+        console.log('✅ Google Sheets API initialized');
+        isGoogleSheetsReady = true;
+        
+        // Cargar datos desde Google Sheets
+        loadFromGoogleSheets();
+        
+    }).catch(function(error) {
+        console.error('❌ Error initializing Google Sheets:', error);
+        showNotification('Error conectando con Google Sheets. Usando modo local.', 'warning');
+        
+        // Fallback a localStorage si falla Google Sheets
+        loadSavedConfiguration();
+    });
+}
+
+function loadFromGoogleSheets() {
+    if (!isGoogleSheetsReady) {
+        console.log('⚠️ Google Sheets not ready, using local storage');
+        loadSavedConfiguration();
+        return;
+    }
+    
+    console.log('📥 Loading schedule from Google Sheets...');
+    
+    gapi.client.sheets.spreadsheets.values.get({
+        spreadsheetId: GOOGLE_SHEETS_CONFIG.SHEET_ID,
+        range: GOOGLE_SHEETS_CONFIG.RANGE
+    }).then(function(response) {
+        const values = response.result.values;
+        
+        if (values && values.length > 0) {
+            console.log('✅ Data loaded from Google Sheets');
+            parseGoogleSheetsData(values);
+            showNotification('Horario cargado desde Google Sheets', 'success');
+        } else {
+            console.log('📄 No data in Google Sheets, using default');
+            showNotification('Google Sheets vacío, usando horario por defecto', 'info');
+        }
+        
+    }).catch(function(error) {
+        console.error('❌ Error loading from Google Sheets:', error);
+        showNotification('Error cargando desde Google Sheets. Usando modo local.', 'warning');
+        
+        // Fallback a localStorage
+        loadSavedConfiguration();
+    });
+}
+
+function saveToGoogleSheets() {
+    if (!isGoogleSheetsReady) {
+        console.log('⚠️ Google Sheets not ready, saving to localStorage');
+        saveEditableFieldsToStorage();
+        return;
+    }
+    
+    console.log('💾 Saving to Google Sheets...');
+    
+    const scheduleData = getCurrentScheduleState();
+    const values = convertScheduleToSheetsFormat(scheduleData);
+    
+    gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: GOOGLE_SHEETS_CONFIG.SHEET_ID,
+        range: GOOGLE_SHEETS_CONFIG.RANGE,
+        valueInputOption: 'RAW',
+        resource: {
+            values: values
+        }
+    }).then(function(response) {
+        console.log('✅ Data saved to Google Sheets');
+        showNotification('Horario guardado en Google Sheets', 'success');
+        
+    }).catch(function(error) {
+        console.error('❌ Error saving to Google Sheets:', error);
+        showNotification('Error guardando en Google Sheets', 'danger');
+    });
+}
+
+function parseGoogleSheetsData(values) {
+    // TODO: Convertir datos de Google Sheets al formato del horario
+    console.log('🔄 Parsing Google Sheets data:', values);
+    
+    // Por ahora, usar el formato existente
+    // Implementar conversión específica según la estructura del Sheet
+}
+
+function convertScheduleToSheetsFormat(scheduleData) {
+    // TODO: Convertir horario actual al formato de Google Sheets
+    console.log('🔄 Converting schedule to Sheets format');
+    
+    const values = [
+        ['Hora', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'], // Header
+        // Convertir datos del horario
+    ];
+    
+    // Implementar conversión específica
+    return values;
+}
+
+// Auto-save to Google Sheets when changes are made
+function autoSaveToGoogleSheets() {
+    if (isGoogleSheetsReady) {
+        // Debounce - solo guardar después de 2 segundos sin cambios
+        clearTimeout(window.autoSaveTimeout);
+        window.autoSaveTimeout = setTimeout(saveToGoogleSheets, 2000);
+    }
+}
+
+// ===============================
+// TRUE BINARY FILE PERSISTENCE - NO SERVER REQUIRED
+// ===============================
+
+// Definir constantes para el formato binario personalizado
+const BINARY_FORMAT = {
+    MAGIC_NUMBER: 0x484F5241, // 'HORA' en hexadecimal
+    VERSION: 1,
+    MAX_STRING_LENGTH: 255,
+    MAX_PERIODS: 9,
+    MAX_DAYS: 5,
+    COLOR_CLASSES: {
+        'subject-orange': 0,
+        'subject-red': 1,
+        'subject-green': 2,
+        'subject-purple': 3,
+        'subject-blue': 4,
+        'subject-yellow': 5,
+        'subject-cyan': 6,
+        'subject-pink': 7,
+        'subject-violet': 8,
+        'subject-teal': 9,
+        'subject-indigo': 10,
+        'subject-lime': 11,
+        'subject-coral': 12,
+        'subject-lavender': 13
+    }
+};
+
+// Invertir el mapeo de colores para la deserialización
+const COLOR_CLASSES_REVERSE = Object.fromEntries(
+    Object.entries(BINARY_FORMAT.COLOR_CLASSES).map(([k, v]) => [v, k])
+);
+
+function saveToBinaryFile() {
+    console.log('💾 Saving schedule to TRUE binary file (no server)...');
+    
+    try {
+        // Crear buffer binario personalizado
+        const binaryData = serializeScheduleToBinary();
+        
+        // Crear archivo binario descargable
+        const blob = new Blob([binaryData], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `horario_${new Date().toISOString().slice(0, 10)}.hbin`;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Schedule saved to TRUE binary file');
+        showNotification('Horario guardado en formato binario real', 'success');
+        
+    } catch (error) {
+        console.error('❌ Error saving to binary file:', error);
+        showNotification('Error al guardar archivo binario', 'danger');
+    }
+}
+
+function serializeScheduleToBinary() {
+    console.log('🔄 Serializing to custom binary format...');
+    
+    // Calcular el tamaño necesario del buffer
+    const bufferSize = calculateBufferSize();
+    const buffer = new ArrayBuffer(bufferSize);
+    const view = new DataView(buffer);
+    let offset = 0;
+    
+    // 1. HEADER: Magic number y versión
+    view.setUint32(offset, BINARY_FORMAT.MAGIC_NUMBER, false); // Big endian
+    offset += 4;
+    view.setUint16(offset, BINARY_FORMAT.VERSION, false);
+    offset += 2;
+    
+    // 2. TIMESTAMP (8 bytes)
+    const timestamp = BigInt(Date.now());
+    view.setBigUint64(offset, timestamp, false);
+    offset += 8;
+    
+    // 3. METADATA (campos editables)
+    offset = writeStringToBuffer(view, offset, editableFieldsData.profesor || '');
+    offset = writeStringToBuffer(view, offset, editableFieldsData.liceo || '');
+    offset = writeStringToBuffer(view, offset, editableFieldsData.turno || '');
+    offset = writeStringToBuffer(view, offset, editableFieldsData.ciudad || '');
+    
+    // 4. HORARIO ACTUAL
+    offset = writeScheduleToBuffer(view, offset, getCurrentScheduleState());
+    
+    // 5. HORARIO ORIGINAL
+    offset = writeScheduleToBuffer(view, offset, originalSchedule);
+    
+    // 6. HORARIO TEMPORAL
+    offset = writeScheduleToBuffer(view, offset, temporarySchedule);
+    
+    console.log(`✅ Binary serialization complete. Size: ${offset} bytes`);
+    return buffer.slice(0, offset); // Recortar al tamaño real usado
+}
+
+function calculateBufferSize() {
+    // Estimación conservadora del tamaño necesario
+    const headerSize = 4 + 2 + 8; // magic + version + timestamp
+    const metadataSize = 4 * (1 + BINARY_FORMAT.MAX_STRING_LENGTH); // 4 strings
+    const scheduleSize = 3 * (2 + (BINARY_FORMAT.MAX_DAYS * BINARY_FORMAT.MAX_PERIODS * 
+                            (1 + 1 + BINARY_FORMAT.MAX_STRING_LENGTH + BINARY_FORMAT.MAX_STRING_LENGTH))); // 3 horarios
+    
+    return headerSize + metadataSize + scheduleSize;
+}
+
+function writeStringToBuffer(view, offset, str) {
+    const truncatedStr = str.substring(0, BINARY_FORMAT.MAX_STRING_LENGTH);
+    const encoder = new TextEncoder();
+    const encoded = encoder.encode(truncatedStr);
+    
+    // Escribir longitud (1 byte)
+    view.setUint8(offset, encoded.length);
+    offset += 1;
+    
+    // Escribir datos de string
+    for (let i = 0; i < encoded.length; i++) {
+        view.setUint8(offset + i, encoded[i]);
+    }
+    offset += encoded.length;
+    
+    return offset;
+}
+
+function writeScheduleToBuffer(view, offset, schedule) {
+    const startOffset = offset;
+    
+    // Reservar espacio para el tamaño del horario
+    offset += 2;
+    
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    
+    for (const day of days) {
+        const daySchedule = schedule[day] || {};
+        
+        for (let period = 0; period < BINARY_FORMAT.MAX_PERIODS; period++) {
+            const subject = daySchedule[period.toString()];
+            
+            if (subject) {
+                // Marcar que hay subject (1 byte)
+                view.setUint8(offset, 1);
+                offset += 1;
+                
+                // Escribir color class (1 byte)
+                const colorIndex = BINARY_FORMAT.COLOR_CLASSES[subject.colorClass] || 0;
+                view.setUint8(offset, colorIndex);
+                offset += 1;
+                
+                // Escribir texto del subject
+                offset = writeStringToBuffer(view, offset, subject.text || '');
+                
+                // Escribir dataSubject
+                offset = writeStringToBuffer(view, offset, subject.dataSubject || '');
+            } else {
+                // Marcar que NO hay subject (1 byte)
+                view.setUint8(offset, 0);
+                offset += 1;
+            }
+        }
+    }
+    
+    // Escribir el tamaño real del horario al principio
+    const scheduleSize = offset - startOffset - 2;
+    view.setUint16(startOffset, scheduleSize, false);
+    
+    return offset;
+}
+
+function saveToTextFile() {
+    console.log('📄 Saving schedule to text file...');
+    
+    // Recopilar todos los datos del horario
+    const scheduleData = {
+        version: '1.0',
+        schedule: getCurrentScheduleState(),
+        metadata: editableFieldsData,
+        timestamp: Date.now(),
+        originalSchedule: originalSchedule,
+        temporarySchedule: temporarySchedule,
+        // Agregar información legible para humanos
+        humanReadable: {
+            saveDate: new Date().toLocaleString(),
+            profesor: editableFieldsData.profesor || 'Sin especificar',
+            liceo: editableFieldsData.liceo || 'Sin especificar',
+            turno: editableFieldsData.turno || 'Sin especificar',
+            ciudad: editableFieldsData.ciudad || 'Sin especificar'
+        }
+    };
+    
+    try {
+        // Convertir a JSON con formato legible (indentado)
+        const jsonString = JSON.stringify(scheduleData, null, 2);
+        
+        // Crear archivo de texto descargable
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `horario_escolar_${new Date().toISOString().slice(0, 10)}.json`;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Schedule saved to text file');
+        showNotification('Horario guardado en archivo JSON', 'success');
+        
+    } catch (error) {
+        console.error('❌ Error saving to text file:', error);
+        showNotification('Error al guardar archivo JSON', 'danger');
+    }
+}
+
+function loadFromBinaryFile(file) {
+    console.log('📥 Loading schedule from TRUE binary file (no server)...');
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const buffer = e.target.result;
+            console.log(`📂 Reading binary file: ${file.name}, Size: ${buffer.byteLength} bytes`);
+            
+            // Deserializar desde formato binario personalizado
+            const data = deserializeScheduleFromBinary(buffer);
+            
+            console.log('✅ Binary deserialization complete');
+            
+            // Aplicar configuración del horario
+            if (data.currentSchedule) {
+                applyScheduleConfiguration(data.currentSchedule);
+                console.log('✅ Current schedule applied');
+            }
+            
+            // Aplicar metadatos (campos editables)
+            if (data.metadata) {
+                editableFieldsData = { ...editableFieldsData, ...data.metadata };
+                applyEditableFieldsData();
+                console.log('✅ Metadata applied');
+            }
+            
+            // Restaurar horarios originales y temporales
+            if (data.originalSchedule) {
+                originalSchedule = data.originalSchedule;
+                console.log('✅ Original schedule restored');
+            }
+            
+            if (data.temporarySchedule) {
+                temporarySchedule = data.temporarySchedule;
+                console.log('✅ Temporary schedule restored');
+            }
+            
+            // Actualizar el estado de la sesión
+            updateSessionSchedule();
+            
+            // Mostrar información del archivo cargado
+            const saveDate = new Date(Number(data.timestamp));
+            console.log('✅ Schedule loaded from TRUE binary file successfully');
+            showNotification(`Horario binario cargado (guardado: ${saveDate.toLocaleString()})`, 'success');
+            
+        } catch (error) {
+            console.error('❌ Error loading from binary file:', error);
+            showNotification(`Error al cargar archivo binario: ${error.message}`, 'danger');
+        }
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading binary file');
+        showNotification('Error al leer el archivo binario', 'danger');
+    };
+    
+    reader.readAsArrayBuffer(file);
+}
+
+function deserializeScheduleFromBinary(buffer) {
+    console.log('🔄 Deserializing from custom binary format...');
+    
+    const view = new DataView(buffer);
+    let offset = 0;
+    
+    // 1. VALIDAR HEADER
+    const magicNumber = view.getUint32(offset, false);
+    offset += 4;
+    
+    if (magicNumber !== BINARY_FORMAT.MAGIC_NUMBER) {
+        throw new Error(`Archivo binario inválido. Magic number: 0x${magicNumber.toString(16)}`);
+    }
+    
+    const version = view.getUint16(offset, false);
+    offset += 2;
+    
+    if (version !== BINARY_FORMAT.VERSION) {
+        throw new Error(`Versión no soportada: ${version}. Esperada: ${BINARY_FORMAT.VERSION}`);
+    }
+    
+    console.log(`📋 Binary file validated - Magic: 0x${magicNumber.toString(16)}, Version: ${version}`);
+    
+    // 2. LEER TIMESTAMP
+    const timestamp = view.getBigUint64(offset, false);
+    offset += 8;
+    
+    // 3. LEER METADATA
+    const metadata = {};
+    const result = readStringFromBuffer(view, offset);
+    metadata.profesor = result.str;
+    offset = result.newOffset;
+    
+    const result2 = readStringFromBuffer(view, offset);
+    metadata.liceo = result2.str;
+    offset = result2.newOffset;
+    
+    const result3 = readStringFromBuffer(view, offset);
+    metadata.turno = result3.str;
+    offset = result3.newOffset;
+    
+    const result4 = readStringFromBuffer(view, offset);
+    metadata.ciudad = result4.str;
+    offset = result4.newOffset;
+    
+    // 4. LEER HORARIOS
+    const currentScheduleResult = readScheduleFromBuffer(view, offset);
+    const currentSchedule = currentScheduleResult.schedule;
+    offset = currentScheduleResult.newOffset;
+    
+    const originalScheduleResult = readScheduleFromBuffer(view, offset);
+    const originalSchedule = originalScheduleResult.schedule;
+    offset = originalScheduleResult.newOffset;
+    
+    const temporaryScheduleResult = readScheduleFromBuffer(view, offset);
+    const temporarySchedule = temporaryScheduleResult.schedule;
+    offset = temporaryScheduleResult.newOffset;
+    
+    console.log(`✅ Deserialization complete. Processed ${offset} bytes.`);
+    
+    return {
+        timestamp,
+        metadata,
+        currentSchedule,
+        originalSchedule,
+        temporarySchedule
+    };
+}
+
+function readStringFromBuffer(view, offset) {
+    // Leer longitud del string
+    const length = view.getUint8(offset);
+    offset += 1;
+    
+    // Leer bytes del string
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+        bytes[i] = view.getUint8(offset + i);
+    }
+    offset += length;
+    
+    // Decodificar a string
+    const decoder = new TextDecoder();
+    const str = decoder.decode(bytes);
+    
+    return { str, newOffset: offset };
+}
+
+function readScheduleFromBuffer(view, offset) {
+    // Leer tamaño del horario
+    const scheduleSize = view.getUint16(offset, false);
+    offset += 2;
+    const scheduleEndOffset = offset + scheduleSize;
+    
+    const schedule = {};
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    
+    for (const day of days) {
+        schedule[day] = {};
+        
+        for (let period = 0; period < BINARY_FORMAT.MAX_PERIODS; period++) {
+            if (offset >= scheduleEndOffset) break;
+            
+            // Leer si hay subject
+            const hasSubject = view.getUint8(offset);
+            offset += 1;
+            
+            if (hasSubject) {
+                // Leer color class
+                const colorIndex = view.getUint8(offset);
+                offset += 1;
+                const colorClass = COLOR_CLASSES_REVERSE[colorIndex] || 'subject-orange';
+                
+                // Leer texto del subject
+                const textResult = readStringFromBuffer(view, offset);
+                offset = textResult.newOffset;
+                
+                // Leer dataSubject
+                const dataSubjectResult = readStringFromBuffer(view, offset);
+                offset = dataSubjectResult.newOffset;
+                
+                schedule[day][period.toString()] = {
+                    text: textResult.str,
+                    colorClass: colorClass,
+                    dataSubject: dataSubjectResult.str
+                };
+            }
+        }
+    }
+    
+    return { schedule, newOffset: scheduleEndOffset };
+}
+
+function loadFromTextFile(file) {
+    console.log('📥 Loading schedule from text file...');
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // Validar estructura básica
+            if (!data.schedule && !data.metadata) {
+                throw new Error('Archivo JSON no válido: estructura incorrecta');
+            }
+            
+            console.log('📂 Text file loaded');
+            
+            // Aplicar configuración del horario
+            if (data.schedule) {
+                applyScheduleConfiguration(data.schedule);
+                console.log('✅ Schedule configuration applied');
+            }
+            
+            // Aplicar metadatos
+            if (data.metadata) {
+                editableFieldsData = { ...editableFieldsData, ...data.metadata };
+                applyEditableFieldsData();
+                console.log('✅ Metadata applied');
+            }
+            
+            // Restaurar horarios si existen
+            if (data.originalSchedule) {
+                originalSchedule = data.originalSchedule;
+            }
+            
+            if (data.temporarySchedule) {
+                temporarySchedule = data.temporarySchedule;
+            }
+            
+            // Actualizar el estado de la sesión
+            updateSessionSchedule();
+            
+            console.log('✅ Schedule loaded from text file successfully');
+            showNotification('Horario cargado desde archivo JSON', 'success');
+            
+        } catch (error) {
+            console.error('❌ Error loading from text file:', error);
+            showNotification(`Error al cargar archivo JSON: ${error.message}`, 'danger');
+        }
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading text file');
+        showNotification('Error al leer el archivo JSON', 'danger');
+    };
+    
+    reader.readAsText(file);
+}
+
+function handleFileLoad(input) {
+    const file = input.files[0];
+    if (!file) {
+        console.log('❌ No file selected');
+        return;
+    }
+    
+    console.log('📁 File selected:', file.name, 'Size:', file.size, 'bytes');
+    
+    const fileName = file.name.toLowerCase();
+    
+    // Detectar tipo de archivo por extensión
+    if (fileName.endsWith('.json')) {
+        console.log('🔍 Detected JSON file');
+        loadFromTextFile(file);
+    } else if (fileName.endsWith('.hbin') || fileName.endsWith('.bin')) {
+        console.log('🔍 Detected binary file');
+        loadFromBinaryFile(file);
+    } else {
+        console.log('❌ Unsupported file format');
+        showNotification('Formato de archivo no soportado. Use .json o .hbin', 'warning');
+    }
+    
+    // Limpiar el input para permitir cargar el mismo archivo otra vez
+    input.value = '';
+}
+
+function applyEditableFieldsData() {
+    // Aplicar los datos de campos editables al DOM
+    Object.keys(editableFieldsData).forEach(fieldName => {
+        const field = document.querySelector(`[data-field="${fieldName}"]`);
+        if (field) {
+            field.textContent = editableFieldsData[fieldName] || '';
+        }
+    });
+}
+
+function compareBinaryVsText() {
+    console.log('📊 Comparing TRUE binary vs JSON formats...');
+    
+    try {
+        // Datos completos para comparación justa
+        const fullScheduleData = {
+            version: '1.0',
+            schedule: getCurrentScheduleState(),
+            metadata: editableFieldsData,
+            timestamp: Date.now(),
+            originalSchedule: originalSchedule,
+            temporarySchedule: temporarySchedule,
+            humanReadable: {
+                saveDate: new Date().toLocaleString(),
+                profesor: editableFieldsData.profesor || 'Sin especificar',
+                liceo: editableFieldsData.liceo || 'Sin especificar',
+                turno: editableFieldsData.turno || 'Sin especificar',
+                ciudad: editableFieldsData.ciudad || 'Sin especificar'
+            }
+        };
+        
+        // Tamaño como JSON (formato texto)
+        const jsonString = JSON.stringify(fullScheduleData, null, 2);
+        const jsonSize = new Blob([jsonString]).size;
+        
+        // Tamaño como binario REAL (formato personalizado)
+        const binaryData = serializeScheduleToBinary();
+        const binarySize = binaryData.byteLength;
+        
+        // Calcular estadísticas
+        const difference = jsonSize - binarySize;
+        const compressionRatio = ((difference / jsonSize) * 100).toFixed(1);
+        const sizeFactor = (jsonSize / binarySize).toFixed(1);
+        
+        console.log('📊 COMPARISON RESULTS:');
+        console.log(`📄 JSON File: ${jsonSize} bytes`);
+        console.log(`🗃️ TRUE Binary File: ${binarySize} bytes`);
+        console.log(`💾 Space Saved: ${difference} bytes (${compressionRatio}%)`);
+        console.log(`⚡ Size Factor: ${sizeFactor}x smaller`);
+        
+        // Mostrar en interfaz con más detalles
+        showNotification(
+            `📊 JSON: ${jsonSize}b | Binario: ${binarySize}b | ` +
+            `Ahorro: ${difference}b (${compressionRatio}%) | ` +
+            `${sizeFactor}x más pequeño`, 
+            'info'
+        );
+        
+        // Log adicional sobre eficiencia
+        if (binarySize > 0) {
+            const efficiencyScore = Math.round((1 - binarySize/jsonSize) * 100);
+            console.log(`🏆 Binary Efficiency Score: ${efficiencyScore}%`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error during comparison:', error);
+        showNotification('Error al comparar formatos', 'danger');
+    }
+}
+
+// Función para trabajar completamente offline - LocalStorage como backup
+function enableOfflineMode() {
+    console.log('📱 Enabling full offline mode...');
+    
+    try {
+        // Verificar capacidades del navegador
+        const capabilities = {
+            localStorage: typeof(Storage) !== 'undefined',
+            fileApi: window.File && window.FileReader && window.FileList && window.Blob,
+            dataView: typeof DataView !== 'undefined',
+            bigInt: typeof BigInt !== 'undefined'
+        };
+        
+        console.log('🔍 Browser capabilities check:', capabilities);
+        
+        const allCapable = Object.values(capabilities).every(cap => cap);
+        
+        if (allCapable) {
+            console.log('✅ All required capabilities available - Full offline mode enabled');
+            
+            // Verificar si showNotification existe antes de usarla
+            if (typeof showNotification === 'function') {
+                showNotification('Modo offline completo habilitado', 'success');
+            }
+            
+            // Auto-guardar en localStorage como backup
+            saveOfflineBackup();
+            
+            return true;
+        } else {
+            console.warn('⚠️ Some capabilities missing:', capabilities);
+            
+            // Verificar si showNotification existe antes de usarla
+            if (typeof showNotification === 'function') {
+                showNotification('Algunas funciones offline limitadas', 'warning');
+            }
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Error in enableOfflineMode:', error);
+        return false;
+    }
+}
+
+function saveOfflineBackup() {
+    try {
+        // Guardar una copia en localStorage como backup
+        const backupData = {
+            timestamp: Date.now(),
+            schedule: getCurrentScheduleState(),
+            metadata: editableFieldsData,
+            version: 'offline-backup'
+        };
+        
+        localStorage.setItem('horario_offline_backup', JSON.stringify(backupData));
+        console.log('💾 Offline backup saved to localStorage');
+        
+    } catch (error) {
+        console.error('❌ Error saving offline backup:', error);
+    }
+}
+
+function loadOfflineBackup() {
+    try {
+        const backup = localStorage.getItem('horario_offline_backup');
+        if (backup) {
+            const data = JSON.parse(backup);
+            console.log('📂 Loading offline backup from localStorage...');
+            
+            if (data.schedule) {
+                applyScheduleConfiguration(data.schedule);
+            }
+            
+            if (data.metadata) {
+                editableFieldsData = { ...editableFieldsData, ...data.metadata };
+                applyEditableFieldsData();
+            }
+            
+            updateSessionSchedule();
+            
+            const backupDate = new Date(data.timestamp);
+            showNotification(`Backup offline cargado (${backupDate.toLocaleString()})`, 'info');
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('❌ Error loading offline backup:', error);
+        return false;
+    }
+}
+
+// Función para mostrar información técnica del archivo binario
+function analyzeBinaryFile() {
+    try {
+        const binaryData = serializeScheduleToBinary();
+        const view = new DataView(binaryData);
+        
+        console.log('🔬 BINARY FILE ANALYSIS:');
+        console.log(`📏 Total size: ${binaryData.byteLength} bytes`);
+        console.log(`🔢 Magic number: 0x${view.getUint32(0, false).toString(16).toUpperCase()}`);
+        console.log(`📋 Version: ${view.getUint16(4, false)}`);
+        console.log(`⏰ Timestamp: ${new Date(Number(view.getBigUint64(6, false))).toLocaleString()}`);
+        
+        // Analizar distribución de datos
+        const headerSize = 4 + 2 + 8; // magic + version + timestamp
+        const metadataStart = headerSize;
+        
+        console.log(`📊 Header: ${headerSize} bytes`);
+        console.log(`📝 Data starts at byte: ${metadataStart}`);
+        
+        showNotification(`Análisis: ${binaryData.byteLength} bytes total`, 'info');
+        
+    } catch (error) {
+        console.error('❌ Error analyzing binary file:', error);
+    }
 }
 
 // ===============================
