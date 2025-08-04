@@ -2,12 +2,15 @@
 // GOOGLE SHEETS CONFIGURATION
 // ===============================
 
-// TODO: Configurar estas variables con tus datos
+// GOOGLE SHEETS CONFIGURATION - Configuración para sincronización entre dispositivos
 const GOOGLE_SHEETS_CONFIG = {
-    API_KEY: 'TU_API_KEY_AQUI', // Será configurado después
-    SHEET_ID: 'TU_SHEET_ID_AQUI', // Será configurado después
-    RANGE: 'Horario!A1:H20' // Rango de celdas
+    API_KEY: 'AIzaSyBvVfY8gF_example_fake_key_123', // Reemplazar con tu API key real
+    SHEET_ID: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms', // Reemplazar con tu Sheet ID real
+    RANGE: 'Horario!A1:H20' // Rango de celdas donde se guardan los datos
 };
+
+// FLAG: Habilitar/deshabilitar Google Sheets
+const ENABLE_GOOGLE_SHEETS = false; // Cambiar a true cuando tengas las credenciales
 
 let isGoogleSheetsReady = false;
 let gapi = null;
@@ -49,6 +52,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Enable offline mode (after everything is set up)
         enableOfflineMode();
+        
+        // Check for shared data in URL FIRST
+        const loadedFromURL = loadFromURL();
+        if (loadedFromURL) {
+            console.log('✅ Data loaded from shared URL');
+        }
         
         // Check for recent binary files
         setTimeout(() => {
@@ -834,6 +843,11 @@ function showNotification(message, type = 'info') {
 // ===============================
 
 function initializeGoogleSheets() {
+    if (!ENABLE_GOOGLE_SHEETS) {
+        console.log('📋 Google Sheets disabled - using local storage only');
+        return;
+    }
+    
     console.log('🔄 Initializing Google Sheets API...');
     
     // Cargar Google API
@@ -1655,6 +1669,133 @@ function generateAutomaticBinaryFile(type) {
         
     } catch (error) {
         console.error('❌ Error generating automatic binary file:', error);
+    }
+}
+
+// ===============================
+// URL SHARING SYSTEM - SINCRONIZACIÓN VIA URL
+// ===============================
+
+function generateShareableURL() {
+    console.log('🔗 Generating shareable URL...');
+    
+    try {
+        // Comprimir datos del horario
+        const fullData = {
+            v: 1, // versión
+            s: getCurrentScheduleState(), // schedule
+            m: editableFieldsData, // metadata
+            t: Date.now() // timestamp
+        };
+        
+        // Convertir a JSON y luego a Base64 para URL
+        const jsonString = JSON.stringify(fullData);
+        const encodedData = btoa(encodeURIComponent(jsonString));
+        
+        // Generar URL completa
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareUrl = `${baseUrl}?horario=${encodedData}`;
+        
+        // Mostrar en modal o copiar al clipboard
+        copyToClipboard(shareUrl);
+        
+        showNotification(
+            `🔗 Link copiado al portapapeles. Compártelo para sincronizar entre dispositivos.`, 
+            'success'
+        );
+        
+        console.log('✅ Shareable URL generated:', shareUrl.substring(0, 100) + '...');
+        
+        return shareUrl;
+        
+    } catch (error) {
+        console.error('❌ Error generating shareable URL:', error);
+        showNotification('Error al generar link de compartir', 'danger');
+        return null;
+    }
+}
+
+function loadFromURL() {
+    console.log('🔍 Checking for shared data in URL...');
+    
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const horarioData = urlParams.get('horario');
+        
+        if (!horarioData) {
+            console.log('📄 No shared data in URL');
+            return false;
+        }
+        
+        // Decodificar datos de la URL
+        const decodedJson = decodeURIComponent(atob(horarioData));
+        const data = JSON.parse(decodedJson);
+        
+        console.log('📂 Loading shared data from URL...');
+        
+        // Validar versión
+        if (data.v !== 1) {
+            throw new Error('Versión de datos no compatible');
+        }
+        
+        // Aplicar datos compartidos
+        if (data.s) {
+            applyScheduleConfiguration(data.s);
+            console.log('✅ Schedule applied from shared URL');
+        }
+        
+        if (data.m) {
+            editableFieldsData = { ...editableFieldsData, ...data.m };
+            applyEditableFieldsData();
+            console.log('✅ Metadata applied from shared URL');
+        }
+        
+        // Actualizar sesión
+        updateSessionSchedule();
+        
+        // Mostrar notificación de éxito
+        const shareDate = new Date(data.t);
+        showNotification(
+            `📱 Horario cargado desde link compartido (${shareDate.toLocaleString()})`, 
+            'info'
+        );
+        
+        // Limpiar URL para evitar recargas accidentales
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error loading from URL:', error);
+        showNotification('Error al cargar datos compartidos de la URL', 'warning');
+        return false;
+    }
+}
+
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        // Método moderno
+        return navigator.clipboard.writeText(text);
+    } else {
+        // Fallback para navegadores más antiguos
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-999999px';
+        textarea.style.top = '-999999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        
+        try {
+            document.execCommand('copy');
+            textarea.remove();
+            return Promise.resolve();
+        } catch (error) {
+            textarea.remove();
+            return Promise.reject(error);
+        }
     }
 }
 
