@@ -1,0 +1,13 @@
+{
+  "name": "horarios-html",
+  "version": "1.0.0",
+  "description": "Sistema de Horario Semanal con Drag & Drop",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server . -p 3000",
+    "dev": "http-server . -p 3000"
+  },
+  "keywords": ["horario", "schedule", "drag-drop", "html", "javascript"],
+  "author": "Pablo Sayanes",
+  "license": "MIT"
+}

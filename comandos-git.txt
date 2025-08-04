@@ -1,0 +1,18 @@
+# COMANDOS PARA SUBIR A GITHUB (copia y pega uno por uno)
+
+# 1. Inicializar Git
+git init
+
+# 2. Agregar todos los archivos
+git add .
+
+# 3. Primer commit
+git commit -m "Initial commit: Sistema de Horarios con Drag & Drop"
+
+# 4. Agregar el repositorio remoto (CAMBIAR por tu URL de GitHub)
+git remote add origin https://github.com/TU-USUARIO/horarios-html.git
+
+# 5. Subir al repositorio
+git push -u origin main
+
+# NOTA: Reemplaza "TU-USUARIO" por tu nombre de usuario de GitHub
