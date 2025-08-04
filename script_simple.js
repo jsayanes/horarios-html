@@ -50,6 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Enable offline mode (after everything is set up)
         enableOfflineMode();
         
+        // Check for recent binary files
+        setTimeout(() => {
+            checkForRecentBinaryFiles();
+        }, 2000);
+        
         // Initialize Google Sheets (optional, will fallback to offline)
         initializeGoogleSheets();
         
@@ -537,8 +542,11 @@ function saveTemporary() {
         // Update temporary schedule
         temporarySchedule = JSON.parse(JSON.stringify(currentState));
         
-        console.log('✅ Schedule saved temporarily');
-        showNotification('Horario guardado TEMPORALMENTE', 'info');
+        // NUEVO: Generar automáticamente archivo binario temporal
+        generateAutomaticBinaryFile('temporal');
+        
+        console.log('✅ Schedule saved temporarily (localStorage + binary file)');
+        showNotification('Horario guardado TEMPORALMENTE + archivo binario generado', 'info');
         
     } catch (error) {
         console.error('❌ Error saving temporarily:', error);
@@ -558,8 +566,11 @@ function makePermanent() {
         // Update original schedule to be the new default
         originalSchedule = JSON.parse(JSON.stringify(currentState));
         
-        console.log('✅ Schedule made permanent');
-        showNotification('Horario guardado como PERMANENTE', 'success');
+        // NUEVO: Generar automáticamente archivo binario permanente
+        generateAutomaticBinaryFile('permanente');
+        
+        console.log('✅ Schedule made permanent (localStorage + binary file)');
+        showNotification('Horario guardado como PERMANENTE + archivo binario generado', 'success');
         
     } catch (error) {
         console.error('❌ Error making permanent:', error);
@@ -1606,6 +1617,97 @@ function loadOfflineBackup() {
 }
 
 // Función para mostrar información técnica del archivo binario
+// NUEVA FUNCIÓN: Generar archivo binario automáticamente
+function generateAutomaticBinaryFile(type) {
+    console.log(`🔄 Generating automatic binary file (${type})...`);
+    
+    try {
+        // Crear buffer binario personalizado
+        const binaryData = serializeScheduleToBinary();
+        
+        // Determinar nombre del archivo basado en tipo y fecha
+        const dateStr = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+        const fileName = `horario_${type}_${dateStr}.hbin`;
+        
+        // Crear archivo binario descargable
+        const blob = new Blob([binaryData], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Guardar información del archivo en localStorage para futuras referencias
+        const fileInfo = {
+            name: fileName,
+            type: type,
+            timestamp: Date.now(),
+            size: binaryData.byteLength
+        };
+        
+        localStorage.setItem(`horario_last_binary_${type}`, JSON.stringify(fileInfo));
+        
+        console.log(`✅ Automatic binary file generated: ${fileName} (${binaryData.byteLength} bytes)`);
+        
+    } catch (error) {
+        console.error('❌ Error generating automatic binary file:', error);
+    }
+}
+
+// NUEVA FUNCIÓN: Detectar y sugerir cargar archivos binarios recientes
+function checkForRecentBinaryFiles() {
+    console.log('🔍 Checking for recent binary files...');
+    
+    try {
+        const temporalInfo = localStorage.getItem('horario_last_binary_temporal');
+        const permanentInfo = localStorage.getItem('horario_last_binary_permanente');
+        
+        const files = [];
+        
+        if (temporalInfo) {
+            const info = JSON.parse(temporalInfo);
+            files.push({ ...info, ageMinutes: (Date.now() - info.timestamp) / (1000 * 60) });
+        }
+        
+        if (permanentInfo) {
+            const info = JSON.parse(permanentInfo);
+            files.push({ ...info, ageMinutes: (Date.now() - info.timestamp) / (1000 * 60) });
+        }
+        
+        // Filtrar archivos de las últimas 24 horas
+        const recentFiles = files.filter(f => f.ageMinutes < (24 * 60));
+        
+        if (recentFiles.length > 0) {
+            console.log('📂 Recent binary files found:', recentFiles);
+            
+            // Mostrar notificación de archivos recientes disponibles
+            const fileList = recentFiles.map(f => 
+                `${f.name} (${f.type}, ${Math.round(f.ageMinutes)}min ago)`
+            ).join(', ');
+            
+            if (typeof showNotification === 'function') {
+                showNotification(
+                    `📁 Archivos binarios recientes disponibles: ${fileList}`, 
+                    'info'
+                );
+            }
+            
+            return recentFiles;
+        } else {
+            console.log('📄 No recent binary files found');
+            return [];
+        }
+        
+    } catch (error) {
+        console.error('❌ Error checking recent binary files:', error);
+        return [];
+    }
+}
+
 function analyzeBinaryFile() {
     try {
         const binaryData = serializeScheduleToBinary();

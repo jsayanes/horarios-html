@@ -245,69 +245,66 @@
             </div>
         </div>
 
-        <!-- File Management -->
+        <!-- Archivo Management (Simplificado) -->
         <div class="mt-4">
-            <h4>💾 Gestión de Archivos</h4>
+            <h4>💾 Gestión de Archivos Automática</h4>
             <div class="card">
                 <div class="card-body">
+                    <div class="alert alert-info mb-3">
+                        <h6 class="alert-heading">🔄 Persistencia Automática</h6>
+                        <p class="mb-2">Los botones <strong>"Guardar Temporal"</strong> y <strong>"Guardar Permanente"</strong> 
+                        automáticamente generan archivos binarios optimizados en tu carpeta de descargas.</p>
+                        <small>No necesitas botones adicionales - ¡todo es automático!</small>
+                    </div>
+                    
                     <div class="row">
-                        <!-- Save Options -->
-                        <div class="col-md-6">
-                            <h6 class="card-subtitle mb-3 text-muted">Guardar Horario</h6>
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-primary" onclick="saveToBinaryFile()">
-                                    🗃️ Guardar como Archivo Binario (.hbin)
+                        <!-- Manual Load Options -->
+                        <div class="col-md-8">
+                            <h6 class="card-subtitle mb-3 text-muted">Cargar Manualmente (si necesario)</h6>
+                            <div class="d-flex gap-2">
+                                <input type="file" id="fileInput" style="display: none;" 
+                                       accept=".json,.hbin,.bin" onchange="handleFileLoad(this)">
+                                <button class="btn btn-outline-success" onclick="document.getElementById('fileInput').click()">
+                                    📁 Cargar Archivo (.json o .hbin)
                                 </button>
-                                <button class="btn btn-outline-primary" onclick="saveToTextFile()">
-                                    📄 Guardar como JSON (.json)
-                                </button>
-                                <button class="btn btn-info btn-sm" onclick="compareBinaryVsText()">
-                                    📊 Comparar Tamaños
-                                </button>
-                                <button class="btn btn-secondary btn-sm" onclick="analyzeBinaryFile()">
-                                    🔬 Analizar Binario
+                                <button class="btn btn-outline-info btn-sm" onclick="loadOfflineBackup()">
+                                    💾 Backup Local
                                 </button>
                             </div>
                         </div>
                         
-                        <!-- Load Options -->
-                        <div class="col-md-6">
-                            <h6 class="card-subtitle mb-3 text-muted">Cargar Horario</h6>
-                            <div class="d-grid gap-2">
-                                <input type="file" id="fileInput" style="display: none;" 
-                                       accept=".json,.hbin,.bin" onchange="handleFileLoad(this)">
-                                <button class="btn btn-success" onclick="document.getElementById('fileInput').click()">
-                                    📁 Cargar Archivo (.json o .hbin)
+                        <!-- Analysis Tools -->
+                        <div class="col-md-4">
+                            <h6 class="card-subtitle mb-3 text-muted">Herramientas</h6>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="compareBinaryVsText()">
+                                    📊 Comparar
                                 </button>
-                                <button class="btn btn-outline-success btn-sm" onclick="loadOfflineBackup()">
-                                    💾 Cargar Backup Local
+                                <button class="btn btn-outline-secondary btn-sm" onclick="analyzeBinaryFile()">
+                                    🔬 Analizar
                                 </button>
-                                <small class="text-muted">
-                                    Formatos: JSON (.json) y Binario Real (.hbin)
-                                </small>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Information Panel -->
+                    <!-- Technical Information -->
                     <div class="mt-3 p-3 bg-light rounded">
-                        <h6 class="mb-2">ℹ️ Información sobre Formatos</h6>
+                        <h6 class="mb-2">🚀 Cómo Funciona</h6>
                         <div class="row">
                             <div class="col-md-6">
-                                <strong>Archivo Binario Real (.hbin):</strong>
+                                <strong>Guardar Temporal:</strong>
                                 <ul class="small mb-0 mt-1">
-                                    <li>Formato binario personalizado</li>
-                                    <li>Sin dependencia de servidor</li>
-                                    <li>Máxima eficiencia y velocidad</li>
-                                    <li>Trabajo 100% offline</li>
+                                    <li>💾 Guarda en navegador (localStorage)</li>
+                                    <li>🗃️ Genera archivo binario automáticamente</li>
+                                    <li>📄 Nombre: horario_temporal_[fecha].hbin</li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
-                                <strong>Archivo JSON (.json):</strong>
+                                <strong>Guardar Permanente:</strong>
                                 <ul class="small mb-0 mt-1">
-                                    <li>Legible por humanos</li>
-                                    <li>Fácil de editar manualmente</li>
-                                    <li>Compatible universalmente</li>
+                                    <li>🔒 Establece como predeterminado</li>
+                                    <li>🗃️ Genera archivo binario automáticamente</li>
+                                    <li>📄 Nombre: horario_permanente_[fecha].hbin</li>
                                 </ul>
                             </div>
                         </div>
