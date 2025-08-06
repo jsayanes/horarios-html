@@ -16,3 +16,17 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Configuration files with credentials (SECURITY)
+firebase-config-local.js
+.env
+.env.local
+.env.production
+config.local.js
+
+# Firebase cache and logs
+.firebase/
+firebase-debug.log
+
+# Netlify
+.netlify/

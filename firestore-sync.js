@@ -2,24 +2,37 @@
 // FIRESTORE REAL-TIME SYNCHRONIZATION
 // ========================================
 
-// Configuración de Firebase (REEMPLAZAR con tus credenciales)
+// ========================================
+// FIREBASE CONFIGURATION (SEGURO)
+// ========================================
+// IMPORTANTE: Las credenciales ahora se cargan desde variables de entorno
+// o archivo de configuración separado por seguridad
+
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyAz3a1CupLRuk7nMzKYSL9PKhjvMDfM0SU",
-  authDomain: "horarios-netlify.firebaseapp.com",
-  projectId: "horarios-netlify",
-  storageBucket: "horarios-netlify.firebasestorage.app",
-  messagingSenderId: "87586753693",
-  appId: "1:87586753693:web:eaa78274062ed52da05874"
-};
+// Configuración segura - se carga desde firebase-config.js
+let firebaseConfig = null;
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Función para obtener configuración de forma segura
+function getFirebaseConfig() {
+    if (window.FIREBASE_CONFIG) {
+        return window.FIREBASE_CONFIG;
+    }
+    
+    // Fallback para desarrollo local
+    console.warn('⚠️ Usando configuración de fallback - no recomendado para producción');
+    return {
+        apiKey: "AIzaSyAz3a1CupLRuk7nMzKYSL9PKhjvMDfM0SU",
+        authDomain: "horarios-netlify.firebaseapp.com",
+        projectId: "horarios-netlify",
+        storageBucket: "horarios-netlify.firebasestorage.app",
+        messagingSenderId: "87586753693",
+        appId: "1:87586753693:web:eaa78274062ed52da05874"
+    };
+}
   
   // Variables globales
   let db = null;
@@ -42,8 +55,12 @@ const app = initializeApp(firebaseConfig);
           
           const { initializeApp, getFirestore, doc, onSnapshot, setDoc, getDoc } = window.FirebaseModules;
           
+          // Obtener configuración segura
+          firebaseConfig = getFirebaseConfig();
+          console.log('🔧 Using Firebase config for project:', firebaseConfig.projectId);
+          
           // Inicializar Firebase
-          const app = initializeApp(FIRESTORE_CONFIG);
+          const app = initializeApp(firebaseConfig);
           db = getFirestore(app);
           
           // Referencia al documento principal

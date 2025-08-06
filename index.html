@@ -381,8 +381,23 @@
     };
   </script>
   
+  <!-- Firebase Configuration (secure) -->
+  <script src="firebase-config.js"></script>
+  
   <!-- Tu script existente -->
   <script src="script_simple.js"></script>
   <script src="firestore-sync.js"></script>
+  
+  <!-- Testing en producción (solo en modo debug) -->
+  <script>
+    // Cargar tests solo si se pasa ?debug=1 en la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('debug') === '1') {
+      const script = document.createElement('script');
+      script.src = 'test-production.js';
+      document.head.appendChild(script);
+      console.log('🧪 Modo debug activado - Tests de producción cargados');
+    }
+  </script>
 </body>
 </html>

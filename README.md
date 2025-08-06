@@ -25,6 +25,9 @@ Una aplicación web moderna para crear, gestionar y sincronizar horarios escolar
 
 👉 **[https://horariosliceo.netlify.app/](https://horariosliceo.netlify.app/)**
 
+### 🧪 Modo Testing
+Para verificar funcionamiento: [https://horariosliceo.netlify.app/?debug=1](https://horariosliceo.netlify.app/?debug=1)
+
 ## 📱 Cómo Sincronizar Entre Dispositivos
 
 ### Método 1: Link de Compartir (MÁS FÁCIL)
@@ -34,7 +37,13 @@ Una aplicación web moderna para crear, gestionar y sincronizar horarios escolar
 4. Abre el link en cualquier otro dispositivo
 5. ¡Los cambios aparecen instantáneamente!
 
-### Método 2: Google Sheets (AUTOMÁTICO)
+### Método 2: Firebase Firestore (TIEMPO REAL) ⭐ NUEVO
+- **Sincronización automática** en tiempo real
+- **Sin configuración** para usuarios finales  
+- **Indicador visual** de estado de conexión
+- Ver guía en `CONFIGURACION-NETLIFY.md`
+
+### Método 3: Google Sheets (AUTOMÁTICO)
 Ver guía completa en `CONFIGURACION-SINCRONIZACION.md`
 
 ## 🛠️ Instalación Local
@@ -68,9 +77,10 @@ http://localhost:8000
 
 - **Frontend**: HTML5, CSS3, JavaScript ES6+
 - **Framework CSS**: Bootstrap 5.3
-- **Persistencia**: LocalStorage + Archivos binarios
+- **Persistencia**: LocalStorage + Archivos binarios + Firebase Firestore
 - **Deployment**: GitHub + Netlify
-- **Sincronización**: URL encoding + Base64
+- **Sincronización**: URL encoding + Base64 + Tiempo real (Firebase)
+- **Seguridad**: Variables de entorno + Configuración modular
 
 ## 📊 Características Técnicas
 
@@ -92,6 +102,21 @@ http://localhost:8000
 - 🏫 **Colegios** - Coordinación entre docentes
 - 👨‍👩‍👧‍👦 **Familias** - Compartir horarios entre padres
 - 📱 **Estudiantes** - Acceso desde cualquier dispositivo
+
+## 🔒 Seguridad y Configuración
+
+### ⚙️ Variables de Entorno (IMPORTANTE)
+Para usar Firebase en producción, configura las variables de entorno en Netlify:
+- Ver guía completa: `CONFIGURACION-NETLIFY.md`
+- Variables requeridas: `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID`, etc.
+
+### 🧪 Testing de Producción
+Verifica que todo funcione correctamente:
+```
+https://horariosliceo.netlify.app/?debug=1
+```
+- Abre la consola (F12) para ver resultados de las pruebas
+- Todas las pruebas deben pasar para funcionamiento óptimo
 
 ## 🔄 Desarrollo y Deployment
 
